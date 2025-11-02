@@ -1,0 +1,78 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# IDE & Editors
+/.idea/
+/.vscode/
+/.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Build & Test
+/build/
+/coverage/
+.phpunit.result.cache
+*.log
+*.cache
+
+# Environment
+.env
+.env.backup
+.env.production
+.env.local
+.env.*.local
+
+# Composer
+composer.lock
+/vendor-bin/
+
+# PHP
+*.php~
+*.phps
+*.phpc
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# IDE specific
+.idea/
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+
+# Laravel specific
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+storage/*.key
+storage/logs/*
+!storage/logs/.gitignore
+storage/framework/cache/*
+!storage/framework/cache/.gitignore
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+
+# Testing
+.phpunit.cache
+.phpunit.result.cache
+

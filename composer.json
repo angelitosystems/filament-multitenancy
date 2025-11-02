@@ -1,0 +1,63 @@
+{
+  "name": "angelitosystems/filament-tenancy",
+  "description": "Tenancy package for Filament - multi-database tenants + central support",
+  "type": "library",
+  "keywords": [
+    "filament",
+    "laravel",
+    "tenancy",
+    "multi-tenancy",
+    "saas"
+  ],
+  "require": {
+    "php": "^8.1|^8.2|^8.3",
+    "laravel/framework": "^11.0|^12.0",
+    "filament/filament": "^4.0",
+    "filament/forms": "^4.0",
+    "filament/tables": "^4.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.0",
+    "orchestra/testbench": "^9.0"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/angelitosystems/filament-tenancy",
+  "support": {
+    "issues": "https://github.com/angelitosystems/filament-tenancy/issues",
+    "source": "https://github.com/angelitosystems/filament-tenancy"
+  },
+  "autoload": {
+    "psr-4": {
+      "AngelitoSystems\\FilamentTenancy\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "AngelitoSystems\\FilamentTenancy\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "AngelitoSystems\\FilamentTenancy\\TenancyServiceProvider"
+      ],
+      "aliases": {
+        "Tenancy": "AngelitoSystems\\FilamentTenancy\\Facades\\Tenancy"
+      }
+    }
+  },
+  "authors": [
+    {
+      "name": "Angelito Systems",
+      "email": "angelitosystems@gmail.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "scripts": {
+    "test": "vendor/bin/phpunit",
+    "test-coverage": "vendor/bin/phpunit --coverage-html build/coverage",
+    "test-unit": "vendor/bin/phpunit --testsuite=Unit",
+    "test-integration": "vendor/bin/phpunit --testsuite=Integration"
+  }
+}
