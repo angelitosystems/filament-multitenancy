@@ -20,6 +20,7 @@ A comprehensive multi-tenancy package for Filament with support for multiple dat
 - **🌐 APP_DOMAIN Auto-Detection** - Automatic domain detection from APP_URL for subdomain tenancy
 - **🔧 Enhanced Tenant Creation** - Interactive wizard with automatic domain configuration
 - **🎨 Custom 404 Page** - Beautiful personalized 404 page for tenant not found errors with Livewire component support
+- **⚖️ License-Based** - Future licensing model for commercial use (currently public access)
 
 ## Installation
 
@@ -510,7 +511,53 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-This package is open-sourced software licensed under the [MIT license](LICENSE.md).
+This package is currently available for public use, but will transition to a license-based distribution model in the future.
+
+### ⚖️ License Terms & Usage Rights
+
+**Current Status**: Public Access (Temporary)
+- ✅ **You CAN**: Use this software in your projects (personal, commercial, educational)
+- ✅ **You CAN**: Install and use the package via Composer
+- ✅ **You CAN**: Customize configurations and extend functionality
+- ❌ **You CANNOT**: Create replicas, forks, or copies of this package
+- ❌ **You CANNOT**: Redistribute this package as your own
+- ❌ **You CANNOT**: Remove or modify license headers
+- ❌ **You CANNOT**: Use this package to create competing multi-tenancy solutions
+
+### 🔮 Future Licensing Model
+
+**Important**: This package will transition to a **paid license model** in the future. Users who adopt the package now will receive preferential treatment when licensing becomes available.
+
+- License-based distribution (coming soon)
+- Commercial use will require a valid license
+- Enterprise features will be license-gated
+- Early adopters will have migration paths to licensed versions
+
+### ⚠️ What Happens If You Violate the License?
+
+**Legal Consequences**:
+- You may be subject to legal action for copyright infringement
+- Distribution of unauthorized copies may result in cease and desist orders
+- Commercial use without proper licensing will be pursued legally
+- Creation of replicas or competing solutions will be treated as intellectual property theft
+
+**Technical Consequences**:
+- Package updates may include license validation
+- Unauthorized usage may be detected and blocked
+- Support will not be provided to unlicensed users
+- Access to future versions may be restricted
+
+### 📄 License Compliance
+
+To ensure compliance:
+- ✅ Use the package via official Composer repository only
+- ✅ Do not copy, fork, or replicate the source code
+- ✅ Respect intellectual property rights
+- ✅ Contact us for licensing inquiries: angelitosystems@gmail.com
+
+**Current License**: MIT License (subject to above restrictions)
+
+For complete license terms, please read the [LICENSE](LICENSE) file.
 
 ## Credits
 

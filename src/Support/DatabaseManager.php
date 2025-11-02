@@ -93,8 +93,8 @@ class DatabaseManager
                     ->statement("CREATE DATABASE \"{$databaseName}\"");
             } else {
                 // MySQL: Use CREATE DATABASE with charset and collation
-                DB::connection($tempConnectionName)
-                    ->statement("CREATE DATABASE IF NOT EXISTS `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            DB::connection($tempConnectionName)
+                ->statement("CREATE DATABASE IF NOT EXISTS `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
             }
 
             Log::info('Created tenant database', [
@@ -222,7 +222,7 @@ class DatabaseManager
                 $template['strict'] = true;
                 $template['engine'] = null;
                 $template['options'] = extension_loaded('pdo_mysql') ? array_filter([
-                    PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                    \PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
                 ]) : [];
                 break;
         }
@@ -255,8 +255,8 @@ class DatabaseManager
                 $result = DB::connection($tempConnectionName)
                     ->select("SELECT datname FROM pg_database WHERE datname = ?", [$databaseName]);
             } else {
-                $result = DB::connection($tempConnectionName)
-                    ->select("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", [$databaseName]);
+            $result = DB::connection($tempConnectionName)
+                ->select("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", [$databaseName]);
             }
 
             return count($result) > 0;
@@ -291,7 +291,7 @@ class DatabaseManager
             $this->switchToTenant($tenant);
 
             // Run migrations
-            \Artisan::call('migrate', [
+            Artisan::call('migrate', [
                 '--database' => $this->getTenantConnectionName($tenant),
                 '--path' => config('filament-tenancy.migrations.paths', []),
                 '--force' => true,
@@ -302,7 +302,7 @@ class DatabaseManager
             return true;
         } catch (\Exception $e) {
             $this->switchToCentral();
-            \Log::error("Failed to run tenant migrations: {$e->getMessage()}", [
+            Log::error("Failed to run tenant migrations: {$e->getMessage()}", [
                 'tenant_id' => $tenant->id,
             ]);
             return false;
