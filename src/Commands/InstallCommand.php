@@ -52,6 +52,9 @@ class InstallCommand extends Command
         // Registrar middlewares en bootstrap/app.php (Laravel 11)
         $this->registerMiddlewares();
 
+        // Publicar componentes y vistas de 404
+        $this->publish404Components();
+
         // Mensaje final
         $this->displaySuccessMessage();
 
@@ -858,6 +861,142 @@ class InstallCommand extends Command
             $this->warn('  ⚠ No se pudo registrar los middlewares automáticamente.');
             $this->line('  Por favor, agrega manualmente en bootstrap/app.php:');
             $this->line("  \$middleware->web(append: [\\{$middlewareClass}::class]);");
+        }
+    }
+
+    /**
+     * Publica los componentes y vistas de 404 personalizadas.
+     */
+    protected function publish404Components(): void
+    {
+        // Solo para Laravel 11
+        $laravelVersion = (int) app()->version();
+        if ($laravelVersion < 11) {
+            return; // Laravel 10 maneja 404 de forma diferente
+        }
+
+        $this->info('🎨 Configurando página 404 personalizada...');
+
+        // Preguntar si quiere publicar los componentes
+        if (!$this->confirm('¿Deseas publicar los componentes y vistas de la página 404 personalizada?', true)) {
+            $this->line('  ℹ Los componentes y vistas se usarán desde el paquete.');
+            $this->register404View();
+            return;
+        }
+
+        // Publicar vistas
+        try {
+            $this->call('vendor:publish', [
+                '--provider' => 'AngelitoSystems\FilamentTenancy\TenancyServiceProvider',
+                '--tag' => 'filament-tenancy-views',
+            ]);
+            $this->line('  ✓ Vistas publicadas en <fg=green>resources/views/vendor/filament-tenancy</fg=green>');
+        } catch (\Exception $e) {
+            $this->warn('  ⚠ No se pudieron publicar las vistas: ' . $e->getMessage());
+        }
+
+        // Publicar componente Livewire (opcional, solo si Livewire está disponible)
+        if (class_exists(\Livewire\Component::class)) {
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => 'AngelitoSystems\FilamentTenancy\TenancyServiceProvider',
+                    '--tag' => 'filament-tenancy-components',
+                ]);
+                
+                // Actualizar el namespace del componente publicado
+                $componentPath = app_path('Livewire/TenantNotFound.php');
+                if (File::exists($componentPath)) {
+                    $content = File::get($componentPath);
+                    $content = str_replace(
+                        'namespace AngelitoSystems\\FilamentTenancy\\Components;',
+                        'namespace App\\Livewire;',
+                        $content
+                    );
+                    File::put($componentPath, $content);
+                    $this->line('  ✓ Componente Livewire publicado en <fg=green>app/Livewire/TenantNotFound.php</fg=green>');
+                    $this->line('  ℹ Puedes personalizar el componente según tus necesidades.');
+                }
+            } catch (\Exception $e) {
+                $this->warn('  ⚠ No se pudo publicar el componente: ' . $e->getMessage());
+            }
+        } else {
+            $this->line('  ℹ Livewire no está disponible. La vista funcionará sin componente Livewire.');
+        }
+
+        // Registrar la vista 404 en bootstrap/app.php
+        $this->register404View();
+    }
+
+    /**
+     * Registra la vista 404 en bootstrap/app.php (Laravel 11).
+     */
+    protected function register404View(): void
+    {
+        $laravelVersion = (int) app()->version();
+        if ($laravelVersion < 11) {
+            return;
+        }
+
+        $bootstrapAppPath = base_path('bootstrap/app.php');
+        
+        if (!File::exists($bootstrapAppPath)) {
+            return;
+        }
+
+        $content = File::get($bootstrapAppPath);
+        $originalContent = $content;
+
+        // Verificar si ya está registrada la vista 404
+        if (str_contains($content, 'tenant-not-found') || str_contains($content, 'TenantNotFound')) {
+            $this->line('  ✓ Vista 404 ya está registrada en bootstrap/app.php');
+            return;
+        }
+
+        // Buscar el bloque withExceptions
+        $pattern = '/->withExceptions\s*\(\s*function\s*\(\s*Exceptions\s+\$exceptions\s*\):\s*void\s*\{([^}]*)\}\s*\)/s';
+        
+        if (preg_match($pattern, $content, $matches)) {
+            $exceptionsBlock = $matches[0];
+            $exceptionsContent = $matches[1];
+            
+            // Verificar si está vacío o solo tiene comentarios
+            $trimmedContent = trim($exceptionsContent);
+            if (empty($trimmedContent) || $trimmedContent === '//') {
+                // Reemplazar el comentario o bloque vacío
+                $exceptionRegistration = "\n        \$exceptions->render(function (\\Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException \$e, \\Illuminate\\Http\\Request \$request) {\n            if (str_contains(\$e->getMessage(), 'Tenant not found')) {\n                return response()->view('filament-tenancy::errors.tenant-not-found', [\n                    'host' => \$request->getHost(),\n                    'resolver' => config('filament-tenancy.resolver', 'domain'),\n                    'appDomain' => env('APP_DOMAIN'),\n                ], 404);\n            }\n        });";
+                
+                $newExceptionsBlock = str_replace(
+                    $exceptionsContent,
+                    $exceptionRegistration,
+                    $exceptionsBlock
+                );
+            } else {
+                // Agregar al final del bloque existente
+                $exceptionRegistration = "\n        \$exceptions->render(function (\\Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException \$e, \\Illuminate\\Http\\Request \$request) {\n            if (str_contains(\$e->getMessage(), 'Tenant not found')) {\n                return response()->view('filament-tenancy::errors.tenant-not-found', [\n                    'host' => \$request->getHost(),\n                    'resolver' => config('filament-tenancy.resolver', 'domain'),\n                    'appDomain' => env('APP_DOMAIN'),\n                ], 404);\n            }\n        });";
+                
+                $newExceptionsBlock = str_replace(
+                    '}',
+                    $exceptionRegistration . "\n    }",
+                    $exceptionsBlock
+                );
+            }
+            
+            $content = str_replace($exceptionsBlock, $newExceptionsBlock, $content);
+        } else {
+            // No existe el bloque, agregarlo después de withMiddleware
+            $withMiddlewarePattern = '/->withMiddleware\s*\([^)]+\)/s';
+            if (preg_match($withMiddlewarePattern, $content, $middlewareMatch)) {
+                $exceptionRegistration = "\n    ->withExceptions(function (Exceptions \$exceptions): void {\n        \$exceptions->render(function (\\Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException \$e, \\Illuminate\\Http\\Request \$request) {\n            if (str_contains(\$e->getMessage(), 'Tenant not found')) {\n                return response()->view('filament-tenancy::errors.tenant-not-found', [\n                    'host' => \$request->getHost(),\n                    'resolver' => config('filament-tenancy.resolver', 'domain'),\n                    'appDomain' => env('APP_DOMAIN'),\n                ], 404);\n            }\n        });\n    })";
+                $content = str_replace($middlewareMatch[0], $middlewareMatch[0] . $exceptionRegistration, $content);
+            }
+        }
+
+        if ($content !== $originalContent) {
+            File::put($bootstrapAppPath, $content);
+            $this->line('  ✓ Vista 404 registrada en <fg=green>bootstrap/app.php</fg=green>');
+        } else {
+            $this->warn('  ⚠ No se pudo registrar la vista 404 automáticamente.');
+            $this->line('  Puedes agregarla manualmente en bootstrap/app.php en el bloque withExceptions.');
         }
     }
 

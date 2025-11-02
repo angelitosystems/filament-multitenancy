@@ -37,12 +37,23 @@ class TenantResolver
      */
     protected function resolveTenant(string $host, string $resolver, Request $request): ?Tenant
     {
-        return match ($resolver) {
+        $result = match ($resolver) {
             'subdomain' => $this->resolveBySubdomain($host),
             'domain' => $this->resolveByDomain($host),
             'path' => $this->resolveByPath($request),
             default => null,
         };
+
+        // If resolver is 'domain' but host has 3+ parts (subdomain.domain.tld),
+        // also try subdomain resolution as fallback
+        if (!$result && $resolver === 'domain') {
+            $parts = explode('.', $host);
+            if (count($parts) >= 3) {
+                $result = $this->resolveBySubdomain($host);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -64,16 +75,21 @@ class TenantResolver
         // Extract base domain (everything after the first dot)
         $baseDomain = implode('.', array_slice($parts, 1));
         
-        // If the base domain matches APP_DOMAIN, it's a tenant subdomain
-        // If the base domain is a central domain (but not APP_DOMAIN), don't resolve
+        // If the base domain matches APP_DOMAIN, it's a tenant subdomain - always resolve
         $appDomain = env('APP_DOMAIN');
         if ($appDomain && $baseDomain === $appDomain) {
             // This is a subdomain of APP_DOMAIN, so it's a tenant subdomain
             // Continue with resolution
         } else {
-            // Check if base domain is a central domain (but not APP_DOMAIN)
+            // If base domain is a central domain (but not APP_DOMAIN), don't resolve
+            // Exception: if APP_DOMAIN is not set, allow resolution if not explicitly central
             if ($this->isCentralDomain($baseDomain)) {
-                return null;
+                // Only block if APP_DOMAIN is set and different from baseDomain
+                // If APP_DOMAIN is not set, allow resolution
+                if ($appDomain && $baseDomain !== $appDomain) {
+                    return null;
+                }
+                // If APP_DOMAIN is not set, continue with resolution
             }
         }
 

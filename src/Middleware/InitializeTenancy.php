@@ -34,7 +34,23 @@ class InitializeTenancy
 
         // If no tenant found and we're not on a central domain, return 404
         if (!$tenant) {
-            abort(404, 'Tenant not found for this domain or subdomain.');
+            // Check if custom 404 view exists
+            $customView = resource_path('views/vendor/filament-tenancy/errors/tenant-not-found.blade.php');
+            $packageView = __DIR__ . '/../../resources/views/errors/tenant-not-found.blade.php';
+            
+            $viewExists = file_exists($customView) || file_exists($packageView);
+            
+            if ($viewExists) {
+                // Use custom 404 view
+                return response()->view('filament-tenancy::errors.tenant-not-found', [
+                    'host' => $host,
+                    'resolver' => config('filament-tenancy.resolver', 'domain'),
+                    'appDomain' => env('APP_DOMAIN'),
+                ], 404);
+            }
+            
+            // Fallback to standard 404
+            abort(404, "Tenant not found for domain/subdomain: {$host}");
         }
 
         // Verify tenant is active (unless accessing landlord/admin routes)

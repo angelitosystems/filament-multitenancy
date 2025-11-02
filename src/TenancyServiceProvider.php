@@ -73,6 +73,19 @@ class TenancyServiceProvider extends ServiceProvider
             __DIR__ . '/../database/seeders/PlanSeeder.php' => database_path('seeders/PlanSeeder.php'),
         ], 'filament-tenancy-seeders');
 
+        // Load views
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'filament-tenancy');
+
+        // Publish views (404 page)
+        $this->publishes([
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/filament-tenancy'),
+        ], 'filament-tenancy-views');
+
+        // Publish Livewire component
+        $this->publishes([
+            __DIR__ . '/Components/TenantNotFound.php' => app_path('Livewire/TenantNotFound.php'),
+        ], 'filament-tenancy-components');
+
         // Load migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
