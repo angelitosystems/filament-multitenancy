@@ -444,6 +444,7 @@ class TenancyServiceProvider extends ServiceProvider
 
     /**
      * Apply locale from request (cookie or session).
+     * Simplified: Only uses APP_LOCALE from .env for now.
      */
     protected function applyLocaleFromRequest($request): void
     {
@@ -453,33 +454,18 @@ class TenancyServiceProvider extends ServiceProvider
                 return;
             }
 
-            $locale = null;
+            // Simplified: Only use APP_LOCALE from .env
+            $locale = config('app.locale', 'en');
             $availableLocales = array_keys(\AngelitoSystems\FilamentTenancy\Components\LanguageSwitcher::getAvailableLocales());
-
-            // Priority 1: Check cookie (works even before session starts)
-            if ($request->hasCookie('locale')) {
-                $cookieLocale = $request->cookie('locale');
-                if (in_array($cookieLocale, $availableLocales)) {
-                    $locale = $cookieLocale;
-                }
+            
+            // Ensure the locale is valid
+            if (!in_array($locale, $availableLocales)) {
+                $locale = 'en';
             }
 
-            // Priority 2: Check session if it's started
-            if (!$locale && $request->hasSession() && $request->session()->isStarted()) {
-                $sessionLocale = $request->session()->get('locale');
-                if ($sessionLocale && in_array($sessionLocale, $availableLocales)) {
-                    $locale = $sessionLocale;
-                }
-            }
-
-            // If we found a valid locale, set it early
-            if ($locale && \Illuminate\Support\Facades\App::getLocale() !== $locale) {
+            // Set the locale
+            if (\Illuminate\Support\Facades\App::getLocale() !== $locale) {
                 \Illuminate\Support\Facades\App::setLocale($locale);
-                \Illuminate\Support\Facades\Log::info('TenancyServiceProvider: Set locale early from session/cookie', [
-                    'locale' => $locale,
-                    'source' => $request->hasCookie('locale') ? 'cookie' : 'session',
-                    'previous_locale' => config('app.locale'),
-                ]);
             }
         } catch (\Exception $e) {
             // Silently fail if we can't set locale early

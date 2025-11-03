@@ -714,9 +714,10 @@ return [
         |--------------------------------------------------------------------------
         |
         | Whether to show the language switcher in Filament panels.
+        | Currently disabled by default. Will be enabled when switcher is implemented.
         |
         */
-        'show_language_switcher' => env('TENANCY_SHOW_LANGUAGE_SWITCHER', true),
+        'show_language_switcher' => env('TENANCY_SHOW_LANGUAGE_SWITCHER', false),
 
         /*
         |--------------------------------------------------------------------------
