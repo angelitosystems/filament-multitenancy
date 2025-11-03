@@ -7,8 +7,8 @@ use AngelitoSystems\FilamentTenancy\Middleware\EnsureTenantAccess;
 use AngelitoSystems\FilamentTenancy\Middleware\InitializeTenancy;
 use AngelitoSystems\FilamentTenancy\Middleware\PreventLandlordAccess;
 use AngelitoSystems\FilamentTenancy\Middleware\SetLocale;
-use AngelitoSystems\FilamentTenancy\Resources\Tenant\PlanResource as TenantPlanResource;
 use AngelitoSystems\FilamentTenancy\Resources\Tenant\RoleResource as TenantRoleResource;
+use AngelitoSystems\FilamentTenancy\Resources\PermissionResource;
 use AngelitoSystems\FilamentTenancy\Components\LanguageSwitcher;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
@@ -60,9 +60,13 @@ class TenancyTenantPlugin implements Plugin
             
             $panel->userMenuItems($this->getLanguageMenuItems());
         }
-
-        // Note: In Filament 4, database connection is handled at model level via traits
-        // Tenant models should use BelongsToTenant trait to use tenant connections
+        
+        if ($this->autoRegister) {
+            $panel->resources([
+                TenantRoleResource::class,
+                PermissionResource::class,
+            ]);
+        }
 
         // Configure tenant-specific paths if needed
         if (config('filament-tenancy.tenant_asset_url')) {
@@ -75,8 +79,13 @@ class TenancyTenantPlugin implements Plugin
     public function boot(Panel $panel): void
     {
         // Boot logic for tenant plugin
+        // Discover additional resources from config path
         if ($this->autoRegister) {
-            $this->registerTenantResources($panel);
+            $tenantResourcesPath = config('filament-tenancy.tenant_resources_path');
+            
+            if ($tenantResourcesPath && is_dir($tenantResourcesPath)) {
+                $this->discoverResources($panel, $tenantResourcesPath);
+            }
         }
     }
 
@@ -151,25 +160,6 @@ class TenancyTenantPlugin implements Plugin
     {
         $this->excludedPages = array_merge($this->excludedPages, $pages);
         return $this;
-    }
-
-    /**
-     * Register tenant-specific resources.
-     */
-    protected function registerTenantResources(Panel $panel): void
-    {
-        // Register built-in tenant resources
-        $panel->resources([
-            TenantPlanResource::class,
-            TenantRoleResource::class,
-        ]);
-
-        // Auto-discover and register additional tenant resources
-        $tenantResourcesPath = config('filament-tenancy.tenant_resources_path');
-        
-        if ($tenantResourcesPath && is_dir($tenantResourcesPath)) {
-            $this->discoverResources($panel, $tenantResourcesPath);
-        }
     }
 
     /**

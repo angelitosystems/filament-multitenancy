@@ -6,10 +6,11 @@ use AngelitoSystems\FilamentTenancy\Facades\Tenancy;
 use AngelitoSystems\FilamentTenancy\Models\Role;
 use AngelitoSystems\FilamentTenancy\Models\Tenant;
 use AngelitoSystems\FilamentTenancy\Models\Permission;
-use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CreateTenantUserCommand extends Command
@@ -252,7 +253,15 @@ class CreateTenantUserCommand extends Command
      */
     protected function selectRoleInteractively(): ?Role
     {
-        $roles = Role::all();
+        if (!$this->currentTenant) {
+            $this->error('No hay tenant seleccionado.');
+            return null;
+        }
+
+        // Get roles in tenant context
+        $roles = Tenancy::runForTenant($this->currentTenant, function () {
+            return Role::all();
+        });
         
         if ($roles->isEmpty()) {
             $this->error('No hay roles disponibles. Asegúrate de que el tenant tenga roles creados.');
@@ -267,11 +276,40 @@ class CreateTenantUserCommand extends Command
             $choiceKey = (string) $index;
             $choices[$choiceKey] = "{$role->name} ({$role->slug})";
             $roleMap[$choiceKey] = $role;
+            // Also allow selection by slug
+            $roleMap[$role->slug] = $role;
             $index++;
         }
         
-        $selectedKey = $this->choice('Selecciona un rol para el usuario', $choices, '1');
-        return $roleMap[$selectedKey] ?? null;
+        $this->newLine();
+        $this->info('Roles disponibles:');
+        foreach ($choices as $key => $label) {
+            $this->line("  [{$key}] {$label}");
+        }
+        $this->newLine();
+        
+        $selectedKey = $this->ask('Selecciona un rol (número o slug)', '1');
+        
+        if (empty($selectedKey)) {
+            return null;
+        }
+        
+        // Check if it's a numeric key or a slug
+        if (isset($roleMap[$selectedKey])) {
+            return $roleMap[$selectedKey];
+        }
+        
+        // Try to find by slug if not found in map
+        $role = Tenancy::runForTenant($this->currentTenant, function () use ($selectedKey) {
+            return Role::where('slug', $selectedKey)->first();
+        });
+        
+        if ($role) {
+            return $role;
+        }
+        
+        $this->error("Rol '{$selectedKey}' no encontrado.");
+        return null;
     }
 
     /**
@@ -279,7 +317,14 @@ class CreateTenantUserCommand extends Command
      */
     protected function selectPermissionsInteractively(): array
     {
-        $permissions = Permission::all();
+        if (!$this->currentTenant) {
+            return [];
+        }
+
+        // Get permissions in tenant context
+        $permissions = Tenancy::runForTenant($this->currentTenant, function () {
+            return Permission::all();
+        });
         
         if ($permissions->isEmpty()) {
             $this->warn('No hay permisos disponibles. El usuario tendrá solo los permisos del rol.');
@@ -321,28 +366,96 @@ class CreateTenantUserCommand extends Command
 
     /**
      * Create user in tenant context.
+     * 
+     * @return Model
      */
-    protected function createUserInTenant(Tenant $tenant, array $userData): User
+    protected function createUserInTenant(Tenant $tenant, array $userData): Model
     {
         return Tenancy::runForTenant($tenant, function () use ($userData) {
-            // Create user
-            $user = User::create([
-                'name' => $userData['name'],
-                'email' => $userData['email'],
-                'password' => Hash::make($userData['password']),
-            ]);
-            
-            // Assign role
-            if ($userData['role']) {
-                $user->assignRole($userData['role']);
+            try {
+                // Get User model class from config
+                $userModelClass = config('filament-tenancy.user_model', config('auth.providers.users.model', 'App\\Models\\User'));
+                
+                if (!class_exists($userModelClass)) {
+                    throw new \Exception("User model class '{$userModelClass}' not found. Please check your configuration.");
+                }
+                
+                // Create user
+                $user = $userModelClass::create([
+                    'name' => $userData['name'],
+                    'email' => $userData['email'],
+                    'password' => Hash::make($userData['password']),
+                ]);
+                
+                // Assign role
+                if ($userData['role']) {
+                    $role = $userData['role'];
+                    
+                    // Ensure we have a Role instance
+                    if (!($role instanceof Role)) {
+                        throw new \Exception("Role must be a Role instance, got: " . gettype($role));
+                    }
+                    
+                    // Check if User model has assignRole method (HasRoles trait)
+                    if (method_exists($user, 'assignRole')) {
+                        $user->assignRole($role);
+                        $this->info("  ✓ Rol '{$role->name}' asignado correctamente.");
+                    } elseif (method_exists($user, 'roles')) {
+                        // Fallback: use the relationship directly
+                        $user->roles()->attach($role->id);
+                        $this->info("  ✓ Rol '{$role->name}' asignado correctamente (usando relación directa).");
+                    } else {
+                        // Fallback: insert directly into pivot table
+                        $userModelClass = get_class($user);
+                        DB::table('model_has_roles')->insertOrIgnore([
+                            'role_id' => $role->id,
+                            'model_type' => $userModelClass,
+                            'model_id' => $user->id,
+                        ]);
+                        $this->info("  ✓ Rol '{$role->name}' asignado correctamente (usando inserción directa).");
+                        $this->warn("  ⚠ Considera agregar el trait HasRoles a tu modelo User para mejor funcionalidad.");
+                    }
+                }
+                
+                // Assign additional permissions
+                if (!empty($userData['permissions'])) {
+                    $userModelClass = get_class($user);
+                    foreach ($userData['permissions'] as $permission) {
+                        if ($permission instanceof Permission) {
+                            // Check if User model has givePermissionTo method
+                            if (method_exists($user, 'givePermissionTo')) {
+                                $user->givePermissionTo($permission);
+                            } elseif (method_exists($user, 'permissions')) {
+                                // Fallback: use the relationship directly
+                                $user->permissions()->attach($permission->id);
+                            } else {
+                                // Fallback: insert directly into pivot table
+                                DB::table('model_has_permissions')->insertOrIgnore([
+                                    'permission_id' => $permission->id,
+                                    'model_type' => $userModelClass,
+                                    'model_id' => $user->id,
+                                ]);
+                            }
+                        }
+                    }
+                    $this->info("  ✓ " . count($userData['permissions']) . " permiso(s) adicional(es) asignado(s).");
+                }
+                
+                // Refresh user to load relationships if they exist
+                $user->refresh();
+                if (method_exists($user, 'load')) {
+                    try {
+                        $user->load('roles', 'permissions');
+                    } catch (\Exception $e) {
+                        // Relationships might not exist, that's okay
+                    }
+                }
+                
+                return $user;
+            } catch (\Exception $e) {
+                $this->error("Error al crear usuario en tenant: " . $e->getMessage());
+                throw $e;
             }
-            
-            // Assign additional permissions
-            foreach ($userData['permissions'] as $permission) {
-                $user->givePermissionTo($permission);
-            }
-            
-            return $user;
         });
     }
 
@@ -479,7 +592,11 @@ class CreateTenantUserCommand extends Command
      */
     protected function getRoleBySlug(string $slug): ?Role
     {
-        return Tenancy::runForCentral(function () use ($slug) {
+        if (!$this->currentTenant) {
+            return null;
+        }
+
+        return Tenancy::runForTenant($this->currentTenant, function () use ($slug) {
             return Role::where('slug', $slug)->first();
         });
     }
@@ -489,7 +606,11 @@ class CreateTenantUserCommand extends Command
      */
     protected function getPermissionBySlug(string $slug): ?Permission
     {
-        return Tenancy::runForCentral(function () use ($slug) {
+        if (!$this->currentTenant) {
+            return null;
+        }
+
+        return Tenancy::runForTenant($this->currentTenant, function () use ($slug) {
             return Permission::where('slug', $slug)->first();
         });
     }

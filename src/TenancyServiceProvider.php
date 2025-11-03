@@ -9,6 +9,7 @@ use AngelitoSystems\FilamentTenancy\Commands\TestManualSwitchCommand;
 use AngelitoSystems\FilamentTenancy\Commands\CreateCentralAdminCommand;
 use AngelitoSystems\FilamentTenancy\Commands\CreateTenantCommand;
 use AngelitoSystems\FilamentTenancy\Commands\CreateTenantUserCommand;
+use AngelitoSystems\FilamentTenancy\Commands\AssignRoleToTenantUserCommand;
 use AngelitoSystems\FilamentTenancy\Commands\DebugLanguageRoutesCommand;
 use AngelitoSystems\FilamentTenancy\Commands\DeleteTenantCommand;
 use AngelitoSystems\FilamentTenancy\Commands\DiagnoseLanguageCommand;
@@ -276,6 +277,7 @@ class TenancyServiceProvider extends ServiceProvider
                 SeedCentralDatabaseCommand::class,
                 CreateTenantCommand::class,
                 CreateTenantUserCommand::class,
+                AssignRoleToTenantUserCommand::class,
                 MigrateTenantCommand::class,
                 TenantMigrateCommand::class,
                 TenantRollbackCommand::class,
